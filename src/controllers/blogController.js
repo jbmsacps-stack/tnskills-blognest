@@ -1,7 +1,36 @@
 const Blog = require("../models/Blog");
 
 const createBlog = async (req, res) => {
-    // your existing code
+    try {
+        const { title, content, category, tags, status } = req.body;
+
+        if (!title || !content) {
+            return res.status(400).json({
+                message: "Title and content are required"
+            });
+        }
+
+        const blog = await Blog.create({
+            title,
+            content,
+            category,
+            tags,
+            status,
+            author: req.user.userId
+        });
+
+        res.status(201).json({
+            message: "Blog created successfully",
+            blog
+        });
+
+    } catch (error) {
+        console.error("Create blog error:", error.message);
+
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
 };
 
 const getBlogs = async (req, res) => {

@@ -18,6 +18,9 @@ const protect = async (req, res, next) => {
             token,
             process.env.JWT_SECRET
         );
+        if (!decoded || typeof decoded.userId !== "string" || !/^[a-f\d]{24}$/i.test(decoded.userId)) {
+            throw new AppError("Invalid or expired token", 401, "INVALID_TOKEN");
+        }
         const user = await User.findById(decoded.userId).select("name email role");
         if (!user) throw new AppError("User account is unavailable", 401, "UNAUTHORIZED");
         // Pre-RBAC accounts with role=user retain author capabilities. Missing roles are readers.

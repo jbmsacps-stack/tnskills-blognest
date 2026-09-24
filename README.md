@@ -122,6 +122,27 @@ Common status codes: 400 bad request, 401 unauthenticated, 403 forbidden, 404 mi
 
 ## Environment variables
 
-See .env.example for the complete list. Required: MONGODB_URI, JWT_SECRET. Optional Gemini configuration: GEMINI_API_KEY, GEMINI_MODEL, and GEMINI_TIMEOUT_MS. General, auth, comment, and AI limits have independent window and request-count settings.
+See .env.example for configuration. Required: MONGODB_URI, JWT_SECRET. Gemini generation uses GEMINI_API_KEY and GEMINI_MODEL (default: gemini-3.8-flash). It calls the Gemini v1beta generateContent endpoint with a fixed 30-second timeout. Rate limits use built-in defaults and do not require environment variables.
 
 Never commit .env or place API credentials in source code.
+
+## Test
+
+Run `npm test` for provider-independent Gemini tests covering successful parsing, missing credentials, invalid credentials, provider rate limits, malformed/empty output, timeouts, and network errors. These tests mock the provider and never use the configured API key.
+
+## Postman: generate a blog draft
+
+- Method: `POST`
+- URL: `http://localhost:5000/api/ai/blog/generate`
+- Headers: `Authorization: Bearer <author/editor/admin JWT>` and `Content-Type: application/json`
+- Body (raw JSON):
+
+      {
+        "topic": "Introduction to Cloud Computing",
+        "tone": "professional",
+        "length": "medium",
+        "category": "Technology",
+        "keywords": ["cloud computing", "AWS", "Azure"]
+      }
+
+A successful request returns `success: true` and a `data` draft object with `status: "draft"`. The API does not save or publish it. If Google rejects the configured credential, verify that a valid `GEMINI_API_KEY` is set in the server's `.env`, then restart the server. Never send that key from Postman or frontend code.

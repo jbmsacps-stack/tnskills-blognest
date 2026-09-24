@@ -69,7 +69,7 @@ const getBlogs = async (req, res, next) => {
 
         const [blogs, totalBlogs] = await Promise.all([
             Blog.find(filter)
-                .populate("author", "name email")
+                .populate("author", "name")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -122,7 +122,7 @@ const searchBlogs = async (req, res, next) => {
 
         const [blogs, totalBlogs] = await Promise.all([
             Blog.find(filter)
-                .populate("author", "name email")
+                .populate("author", "name")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -183,7 +183,7 @@ const filterBlogs = async (req, res, next) => {
 
         const [blogs, totalBlogs] = await Promise.all([
             Blog.find(filter)
-                .populate("author", "name email")
+                .populate("author", "name")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
@@ -249,7 +249,7 @@ const getBlogById = async (req, res, next) => {
             {
                 new: true
             }
-        ).populate("author", "name email");
+        ).populate("author", "name");
 
         if (!blog) {
             throw new AppError("Blog not found", 404, "NOT_FOUND");

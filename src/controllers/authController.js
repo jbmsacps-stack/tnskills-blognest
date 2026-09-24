@@ -1,25 +1,23 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const AppError = require("../utils/AppError");
+const normalizeRole = require("../utils/normalizeRole");
 
-const loginUser = async (req, res) => {
+const loginUser = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        const { email, password } = req.validated || req.body;
 
         // Validate required fields
         if (!email || !password) {
-            return res.status(400).json({
-                message: "Email and password are required"
-            });
+            throw new AppError("Email and password are required", 400, "BAD_REQUEST");
         }
 
         // Find user
         const user = await User.findOne({ email });
 
         if (!user) {
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
+            throw new AppError("Invalid email or password", 401, "INVALID_CREDENTIALS");
         }
 
         // Compare password
@@ -29,16 +27,14 @@ const loginUser = async (req, res) => {
         );
 
         if (!isPasswordValid) {
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
+            throw new AppError("Invalid email or password", 401, "INVALID_CREDENTIALS");
         }
 
         // Create JWT
         const token = jwt.sign(
             {
                 userId: user._id,
-                role: user.role
+                role: normalizeRole(user.role)
             },
             process.env.JWT_SECRET,
             {
@@ -57,32 +53,24 @@ const loginUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("Login error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const registerUser = async (req, res) => {
+const registerUser = async (req, res, next) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password } = req.validated || req.body;
 
         // Validate required fields
         if (!name || !email || !password) {
-            return res.status(400).json({
-                message: "Name, email and password are required"
-            });
+            throw new AppError("Name, email and password are required", 400, "BAD_REQUEST");
         }
 
         // Check if user already exists
         const existingUser = await User.findOne({ email });
 
         if (existingUser) {
-            return res.status(409).json({
-                message: "User with this email already exists"
-            });
+            throw new AppError("User with this email already exists", 409, "DUPLICATE_VALUE");
         }
 
         // Hash password
@@ -105,38 +93,37 @@ const registerUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("Registration error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const getMe = async (req, res) => {
+const getMe = async (req, res, next) => {
     try {
         const user = await User.findById(req.user.userId).select("-password");
 
         if (!user) {
-            return res.status(404).json({
-                message: "User not found"
-            });
+            throw new AppError("User not found", 404, "NOT_FOUND");
         }
 
-        res.status(200).json({
-            user
-        });
+        const profile = user.toObject();
+        profile.role = normalizeRole(user.role);
+        res.status(200).json({ user: profile });
     } catch (error) {
-        console.error("Get current user error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
+};
+
+const updateMe = async (req, res, next) => {
+    try {
+        const user = await User.findByIdAndUpdate(req.user.userId, req.validated, { new: true, runValidators: true }).select("-password");
+        if (!user) throw new AppError("User not found", 404, "NOT_FOUND");
+        res.json({ success: true, user });
+    } catch (error) { next(error); }
 };
 
 module.exports = {
     registerUser,
     loginUser,
-    getMe
+    getMe,
+    updateMe
 };

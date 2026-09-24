@@ -51,6 +51,7 @@ const blogSchema = new mongoose.Schema(
                 ref: "User"
             }
         ],
+        media: [{ type: mongoose.Schema.Types.ObjectId, ref: "Media" }],
     },
     {
         timestamps: true

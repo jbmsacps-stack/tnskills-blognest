@@ -1,6 +1,8 @@
 const Blog = require("../models/Blog");
+const { escapeRegex, pagination } = require("../utils/safeInput");
+const AppError = require("../utils/AppError");
 
-const createBlog = async (req, res) => {
+const createBlog = async (req, res, next) => {
     try {
         const {
             title,
@@ -8,26 +10,20 @@ const createBlog = async (req, res) => {
             category,
             tags,
             status
-        } = req.body;
+        } = req.validated || req.body;
 
         if (!title || !title.trim()) {
-            return res.status(400).json({
-                message: "Blog title is required"
-            });
+            throw new AppError("Blog title is required", 400, "BAD_REQUEST");
         }
 
         if (!content || !content.trim()) {
-            return res.status(400).json({
-                message: "Blog content is required"
-            });
+            throw new AppError("Blog content is required", 400, "BAD_REQUEST");
         }
 
         const blogStatus = status || "draft";
 
         if (!["draft", "published"].includes(blogStatus)) {
-            return res.status(400).json({
-                message: "Invalid blog status"
-            });
+            throw new AppError("Invalid blog status", 400, "BAD_REQUEST");
         }
 
         const blog = await Blog.create({
@@ -50,21 +46,20 @@ const createBlog = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Create blog error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const getBlogs = async (req, res) => {
+const getManageableBlogs = async (req, res, next) => {
     try {
-        const page = Math.max(parseInt(req.query.page) || 1, 1);
-        const limit = Math.min(
-            Math.max(parseInt(req.query.limit) || 10, 1),
-            50
-        );
+        const blogs = await Blog.find().populate("author", "name email").sort({ updatedAt: -1 }).limit(100);
+        res.json({ count: blogs.length, blogs });
+    } catch (error) { next(error); }
+};
+
+const getBlogs = async (req, res, next) => {
+    try {
+        const { page, limit } = pagination(req.query);
 
         const skip = (page - 1) * limit;
 
@@ -98,29 +93,19 @@ const getBlogs = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Get blogs error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const searchBlogs = async (req, res) => {
+const searchBlogs = async (req, res, next) => {
     try {
         const { q } = req.query;
 
-        if (!q || !q.trim()) {
-            return res.status(400).json({
-                message: "Search query is required"
-            });
+        if (typeof q !== "string" || !q.trim() || q.length > 100) {
+            throw new AppError("Search query must be between 1 and 100 characters", 400, "INVALID_QUERY");
         }
 
-        const page = Math.max(parseInt(req.query.page) || 1, 1);
-        const limit = Math.min(
-            Math.max(parseInt(req.query.limit) || 10, 1),
-            50
-        );
+        const { page, limit } = pagination(req.query);
 
         const skip = (page - 1) * limit;
         const searchTerm = q.trim();
@@ -128,10 +113,10 @@ const searchBlogs = async (req, res) => {
         const filter = {
             status: "published",
             $or: [
-                { title: { $regex: searchTerm, $options: "i" } },
-                { content: { $regex: searchTerm, $options: "i" } },
-                { category: { $regex: searchTerm, $options: "i" } },
-                { tags: { $regex: searchTerm, $options: "i" } }
+                { title: { $regex: escapeRegex(searchTerm), $options: "i" } },
+                { content: { $regex: escapeRegex(searchTerm), $options: "i" } },
+                { category: { $regex: escapeRegex(searchTerm), $options: "i" } },
+                { tags: { $regex: escapeRegex(searchTerm), $options: "i" } }
             ]
         };
 
@@ -162,30 +147,19 @@ const searchBlogs = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Search blogs error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const filterBlogs = async (req, res) => {
+const filterBlogs = async (req, res, next) => {
     try {
         const { category, tag } = req.query;
 
-        if (!category && !tag) {
-            return res.status(400).json({
-                message: "Category or tag is required"
-            });
+        if ((!category && !tag) || (category !== undefined && typeof category !== "string") || (tag !== undefined && typeof tag !== "string") || (category && category.length > 80) || (tag && tag.length > 40)) {
+            throw new AppError("Provide a valid category or tag", 400, "INVALID_QUERY");
         }
 
-        const page = Math.max(parseInt(req.query.page) || 1, 1);
-
-        const limit = Math.min(
-            Math.max(parseInt(req.query.limit) || 10, 1),
-            50
-        );
+        const { page, limit } = pagination(req.query);
 
         const skip = (page - 1) * limit;
 
@@ -195,14 +169,14 @@ const filterBlogs = async (req, res) => {
 
         if (category) {
             filter.category = {
-                $regex: `^${category.trim()}$`,
+                $regex: `^${escapeRegex(category.trim())}$`,
                 $options: "i"
             };
         }
 
         if (tag) {
             filter.tags = {
-                $regex: `^${tag.trim()}$`,
+                $regex: `^${escapeRegex(tag.trim())}$`,
                 $options: "i"
             };
         }
@@ -240,15 +214,11 @@ const filterBlogs = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Filter blogs error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const getMyBlogs = async (req, res) => {
+const getMyBlogs = async (req, res, next) => {
     try {
         const blogs = await Blog.find({
             author: req.user.userId
@@ -262,15 +232,11 @@ const getMyBlogs = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Get my blogs error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const getBlogById = async (req, res) => {
+const getBlogById = async (req, res, next) => {
     try {
         const blog = await Blog.findOneAndUpdate(
             {
@@ -286,9 +252,7 @@ const getBlogById = async (req, res) => {
         ).populate("author", "name email");
 
         if (!blog) {
-            return res.status(404).json({
-                message: "Blog not found"
-            });
+            throw new AppError("Blog not found", 404, "NOT_FOUND");
         }
 
         res.status(200).json({
@@ -296,31 +260,23 @@ const getBlogById = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Get blog error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const updateBlog = async (req, res) => {
+const updateBlog = async (req, res, next) => {
     try {
-        const { title, content, category, tags, status } = req.body;
+        const { title, content, category, tags, status } = req.validated || req.body;
 
         const blog = await Blog.findById(req.params.id);
 
         if (!blog) {
-            return res.status(404).json({
-                message: "Blog not found"
-            });
+            throw new AppError("Blog not found", 404, "NOT_FOUND");
         }
 
         // Only the author can update the blog
-        if (blog.author.toString() !== req.user.userId) {
-            return res.status(403).json({
-                message: "You are not allowed to update this blog"
-            });
+        if (blog.author.toString() !== req.user.userId && !["editor", "admin"].includes(req.user.role)) {
+            throw new AppError("You are not allowed to update this blog", 403, "FORBIDDEN");
         }
 
         blog.title = title ?? blog.title;
@@ -336,29 +292,21 @@ const updateBlog = async (req, res) => {
             blog
         });
     } catch (error) {
-        console.error("Update blog error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const deleteBlog = async (req, res) => {
+const deleteBlog = async (req, res, next) => {
     try {
         const blog = await Blog.findById(req.params.id);
 
         if (!blog) {
-            return res.status(404).json({
-                message: "Blog not found"
-            });
+            throw new AppError("Blog not found", 404, "NOT_FOUND");
         }
 
         // Only the author can delete the blog
-        if (blog.author.toString() !== req.user.userId) {
-            return res.status(403).json({
-                message: "You are not allowed to delete this blog"
-            });
+        if (blog.author.toString() !== req.user.userId && !["editor", "admin"].includes(req.user.role)) {
+            throw new AppError("You are not allowed to delete this blog", 403, "FORBIDDEN");
         }
 
         await Blog.findByIdAndDelete(req.params.id);
@@ -367,15 +315,11 @@ const deleteBlog = async (req, res) => {
             message: "Blog deleted successfully"
         });
     } catch (error) {
-        console.error("Delete blog error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const toggleLike = async (req, res) => {
+const toggleLike = async (req, res, next) => {
     try {
         const blog = await Blog.findOne({
             _id: req.params.id,
@@ -383,9 +327,7 @@ const toggleLike = async (req, res) => {
         });
 
         if (!blog) {
-            return res.status(404).json({
-                message: "Blog not found"
-            });
+            throw new AppError("Blog not found", 404, "NOT_FOUND");
         }
 
         const userId = req.user.userId;
@@ -419,16 +361,13 @@ const toggleLike = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Toggle like error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
 module.exports = {
     createBlog,
+    getManageableBlogs,
     getBlogs,
     searchBlogs,
     filterBlogs,

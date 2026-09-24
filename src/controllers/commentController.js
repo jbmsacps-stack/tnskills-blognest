@@ -1,15 +1,14 @@
 const Comment = require("../models/Comment");
 const Blog = require("../models/Blog");
+const AppError = require("../utils/AppError");
 
-const createComment = async (req, res) => {
+const createComment = async (req, res, next) => {
     try {
-        const { content } = req.body;
+        const { content } = req.validated || req.body;
         const { blogId } = req.params;
 
         if (!content) {
-            return res.status(400).json({
-                message: "Comment content is required"
-            });
+            throw new AppError("Comment content is required", 400, "BAD_REQUEST");
         }
 
         const blog = await Blog.findOne({
@@ -18,9 +17,7 @@ const createComment = async (req, res) => {
         });
 
         if (!blog) {
-            return res.status(404).json({
-                message: "Blog not found"
-            });
+            throw new AppError("Blog not found", 404, "NOT_FOUND");
         }
 
         const comment = await Comment.create({
@@ -39,27 +36,19 @@ const createComment = async (req, res) => {
             comment: populatedComment
         });
     } catch (error) {
-        console.error("Create comment error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const getComments = async (req, res) => {
+const getComments = async (req, res, next) => {
     try {
-        console.log("1. Getting comments...");
-        console.log("Blog ID:", req.params.blogId);
-
+        const blog = await Blog.findById(req.params.blogId).select("status");
+        if (!blog || blog.status !== "published") throw new AppError("Blog not found", 404, "NOT_FOUND");
         const comments = await Comment.find({
             blog: req.params.blogId
         })
             .populate("author", "name")
             .sort({ createdAt: -1 });
-
-        console.log("2. Comments query completed");
-        console.log("Comments found:", comments.length);
 
         res.status(200).json({
             count: comments.length,
@@ -67,28 +56,20 @@ const getComments = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Get comments error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 
-const deleteComment = async (req, res) => {
+const deleteComment = async (req, res, next) => {
     try {
         const comment = await Comment.findById(req.params.commentId);
 
         if (!comment) {
-            return res.status(404).json({
-                message: "Comment not found"
-            });
+            throw new AppError("Comment not found", 404, "NOT_FOUND");
         }
 
-        if (comment.author.toString() !== req.user.userId) {
-            return res.status(403).json({
-                message: "You are not allowed to delete this comment"
-            });
+        if (comment.author.toString() !== req.user.userId && !["editor", "admin"].includes(req.user.role)) {
+            throw new AppError("You are not allowed to delete this comment", 403, "FORBIDDEN");
         }
 
         await Comment.findByIdAndDelete(req.params.commentId);
@@ -97,11 +78,7 @@ const deleteComment = async (req, res) => {
             message: "Comment deleted successfully"
         });
     } catch (error) {
-        console.error("Delete comment error:", error.message);
-
-        res.status(500).json({
-            message: "Server error"
-        });
+        next(error);
     }
 };
 

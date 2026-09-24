@@ -21,10 +21,13 @@ const userSchema = new mongoose.Schema(
             required: true
         },
 
+        bio: { type: String, trim: true, maxlength: 500, default: "" },
+        avatarUrl: { type: String, trim: true, maxlength: 2048, default: "" },
+
         role: {
             type: String,
-            enum: ["user", "admin"],
-            default: "user"
+            enum: ["admin", "editor", "author", "reader"],
+            default: "reader"
         }
     },
     {

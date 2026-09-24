@@ -225,10 +225,18 @@ const filterBlogs = async (req, res) => {
 
 const getBlogById = async (req, res) => {
     try {
-        const blog = await Blog.findOne({
-            _id: req.params.id,
-            status: "published"
-        }).populate("author", "name email");
+        const blog = await Blog.findOneAndUpdate(
+            {
+                _id: req.params.id,
+                status: "published"
+            },
+            {
+                $inc: { views: 1 }
+            },
+            {
+                new: true
+            }
+        ).populate("author", "name email");
 
         if (!blog) {
             return res.status(404).json({
@@ -239,6 +247,7 @@ const getBlogById = async (req, res) => {
         res.status(200).json({
             blog
         });
+
     } catch (error) {
         console.error("Get blog error:", error.message);
 

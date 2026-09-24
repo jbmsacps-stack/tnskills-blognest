@@ -37,7 +37,13 @@ const blogSchema = new mongoose.Schema(
             type: String,
             enum: ["draft", "published"],
             default: "draft"
-        }
+        },
+
+        views: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
     },
     {
         timestamps: true

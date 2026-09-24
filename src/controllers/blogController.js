@@ -2,26 +2,51 @@ const Blog = require("../models/Blog");
 
 const createBlog = async (req, res) => {
     try {
-        const { title, content, category, tags, status } = req.body;
-
-        if (!title || !content) {
-            return res.status(400).json({
-                message: "Title and content are required"
-            });
-        }
-
-        const blog = await Blog.create({
+        const {
             title,
             content,
             category,
             tags,
-            status,
-            author: req.user.userId
+            status
+        } = req.body;
+
+        if (!title || !title.trim()) {
+            return res.status(400).json({
+                message: "Blog title is required"
+            });
+        }
+
+        if (!content || !content.trim()) {
+            return res.status(400).json({
+                message: "Blog content is required"
+            });
+        }
+
+        const blogStatus = status || "draft";
+
+        if (!["draft", "published"].includes(blogStatus)) {
+            return res.status(400).json({
+                message: "Invalid blog status"
+            });
+        }
+
+        const blog = await Blog.create({
+            title: title.trim(),
+            content: content.trim(),
+            author: req.user.userId,
+            category: category?.trim() || "General",
+            tags: Array.isArray(tags) ? tags : [],
+            status: blogStatus
         });
+
+        const populatedBlog = await blog.populate(
+            "author",
+            "name email"
+        );
 
         res.status(201).json({
             message: "Blog created successfully",
-            blog
+            blog: populatedBlog
         });
 
     } catch (error) {

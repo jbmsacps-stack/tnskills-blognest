@@ -35,14 +35,43 @@ const createBlog = async (req, res) => {
 
 const getBlogs = async (req, res) => {
     try {
-        const blogs = await Blog.find({ status: "published" })
-            .populate("author", "name email")
-            .sort({ createdAt: -1 });
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit) || 10, 1),
+            50
+        );
+
+        const skip = (page - 1) * limit;
+
+        const filter = {
+            status: "published"
+        };
+
+        const [blogs, totalBlogs] = await Promise.all([
+            Blog.find(filter)
+                .populate("author", "name email")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+
+            Blog.countDocuments(filter)
+        ]);
+
+        const totalPages = Math.ceil(totalBlogs / limit);
 
         res.status(200).json({
             count: blogs.length,
+            pagination: {
+                currentPage: page,
+                limit,
+                totalBlogs,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1
+            },
             blogs
         });
+
     } catch (error) {
         console.error("Get blogs error:", error.message);
 
@@ -62,9 +91,16 @@ const searchBlogs = async (req, res) => {
             });
         }
 
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit) || 10, 1),
+            50
+        );
+
+        const skip = (page - 1) * limit;
         const searchTerm = q.trim();
 
-        const blogs = await Blog.find({
+        const filter = {
             status: "published",
             $or: [
                 { title: { $regex: searchTerm, $options: "i" } },
@@ -72,13 +108,31 @@ const searchBlogs = async (req, res) => {
                 { category: { $regex: searchTerm, $options: "i" } },
                 { tags: { $regex: searchTerm, $options: "i" } }
             ]
-        })
-            .populate("author", "name email")
-            .sort({ createdAt: -1 });
+        };
+
+        const [blogs, totalBlogs] = await Promise.all([
+            Blog.find(filter)
+                .populate("author", "name email")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+
+            Blog.countDocuments(filter)
+        ]);
+
+        const totalPages = Math.ceil(totalBlogs / limit);
 
         res.status(200).json({
             count: blogs.length,
             query: searchTerm,
+            pagination: {
+                currentPage: page,
+                limit,
+                totalBlogs,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1
+            },
             blogs
         });
 

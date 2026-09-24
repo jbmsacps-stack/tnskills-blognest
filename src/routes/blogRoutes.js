@@ -3,6 +3,7 @@ const express = require("express");
 const {
     createBlog,
     getBlogs,
+    searchBlogs,
     getBlogById,
     updateBlog,
     deleteBlog
@@ -13,6 +14,8 @@ const protect = require("../middleware/authMiddleware");
 const router = express.Router();
 
 router.get("/", getBlogs);
+
+router.get("/search", searchBlogs);
 
 router.get("/:id", getBlogById);
 

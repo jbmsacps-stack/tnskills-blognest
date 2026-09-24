@@ -52,6 +52,45 @@ const getBlogs = async (req, res) => {
     }
 };
 
+const searchBlogs = async (req, res) => {
+    try {
+        const { q } = req.query;
+
+        if (!q || !q.trim()) {
+            return res.status(400).json({
+                message: "Search query is required"
+            });
+        }
+
+        const searchTerm = q.trim();
+
+        const blogs = await Blog.find({
+            status: "published",
+            $or: [
+                { title: { $regex: searchTerm, $options: "i" } },
+                { content: { $regex: searchTerm, $options: "i" } },
+                { category: { $regex: searchTerm, $options: "i" } },
+                { tags: { $regex: searchTerm, $options: "i" } }
+            ]
+        })
+            .populate("author", "name email")
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            count: blogs.length,
+            query: searchTerm,
+            blogs
+        });
+
+    } catch (error) {
+        console.error("Search blogs error:", error.message);
+
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+
 const getBlogById = async (req, res) => {
     try {
         const blog = await Blog.findOne({
@@ -151,6 +190,7 @@ const deleteBlog = async (req, res) => {
 module.exports = {
     createBlog,
     getBlogs,
+    searchBlogs,
     getBlogById,
     updateBlog,
     deleteBlog

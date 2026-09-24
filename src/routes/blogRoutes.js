@@ -4,6 +4,7 @@ const {
     createBlog,
     getBlogs,
     searchBlogs,
+    filterBlogs,
     getBlogById,
     updateBlog,
     deleteBlog
@@ -16,6 +17,8 @@ const router = express.Router();
 router.get("/", getBlogs);
 
 router.get("/search", searchBlogs);
+
+router.get("/filter", filterBlogs);
 
 router.get("/:id", getBlogById);
 

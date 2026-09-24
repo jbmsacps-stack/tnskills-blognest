@@ -91,6 +91,50 @@ const searchBlogs = async (req, res) => {
     }
 };
 
+const filterBlogs = async (req, res) => {
+    try {
+        const { category, tag } = req.query;
+
+        const filter = {
+            status: "published"
+        };
+
+        if (category) {
+            filter.category = {
+                $regex: `^${category.trim()}$`,
+                $options: "i"
+            };
+        }
+
+        if (tag) {
+            filter.tags = {
+                $regex: `^${tag.trim()}$`,
+                $options: "i"
+            };
+        }
+
+        const blogs = await Blog.find(filter)
+            .populate("author", "name email")
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            count: blogs.length,
+            filters: {
+                category: category || null,
+                tag: tag || null
+            },
+            blogs
+        });
+
+    } catch (error) {
+        console.error("Filter blogs error:", error.message);
+
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+
 const getBlogById = async (req, res) => {
     try {
         const blog = await Blog.findOne({
@@ -191,6 +235,7 @@ module.exports = {
     createBlog,
     getBlogs,
     searchBlogs,
+    filterBlogs,
     getBlogById,
     updateBlog,
     deleteBlog

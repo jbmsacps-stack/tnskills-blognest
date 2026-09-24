@@ -88,9 +88,41 @@ const updateBlog = async (req, res) => {
     }
 };
 
+const deleteBlog = async (req, res) => {
+    try {
+        const blog = await Blog.findById(req.params.id);
+
+        if (!blog) {
+            return res.status(404).json({
+                message: "Blog not found"
+            });
+        }
+
+        // Only the author can delete the blog
+        if (blog.author.toString() !== req.user.userId) {
+            return res.status(403).json({
+                message: "You are not allowed to delete this blog"
+            });
+        }
+
+        await Blog.findByIdAndDelete(req.params.id);
+
+        res.status(200).json({
+            message: "Blog deleted successfully"
+        });
+    } catch (error) {
+        console.error("Delete blog error:", error.message);
+
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+
 module.exports = {
     createBlog,
     getBlogs,
     getBlogById,
-    updateBlog
+    updateBlog,
+    deleteBlog
 };

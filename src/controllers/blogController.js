@@ -328,6 +328,58 @@ const deleteBlog = async (req, res) => {
     }
 };
 
+const toggleLike = async (req, res) => {
+    try {
+        const blog = await Blog.findOne({
+            _id: req.params.id,
+            status: "published"
+        });
+
+        if (!blog) {
+            return res.status(404).json({
+                message: "Blog not found"
+            });
+        }
+
+        const userId = req.user.userId;
+
+        const alreadyLiked = blog.likes.some(
+            (user) => user.toString() === userId
+        );
+
+        if (alreadyLiked) {
+            blog.likes = blog.likes.filter(
+                (user) => user.toString() !== userId
+            );
+
+            await blog.save();
+
+            return res.status(200).json({
+                message: "Blog unliked successfully",
+                liked: false,
+                likes: blog.likes.length
+            });
+        }
+
+        blog.likes.push(userId);
+
+        await blog.save();
+
+        res.status(200).json({
+            message: "Blog liked successfully",
+            liked: true,
+            likes: blog.likes.length
+        });
+
+    } catch (error) {
+        console.error("Toggle like error:", error.message);
+
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+
 module.exports = {
     createBlog,
     getBlogs,
@@ -335,5 +387,6 @@ module.exports = {
     filterBlogs,
     getBlogById,
     updateBlog,
-    deleteBlog
+    deleteBlog,
+    toggleLike
 };

@@ -7,7 +7,8 @@ const {
     filterBlogs,
     getBlogById,
     updateBlog,
-    deleteBlog
+    deleteBlog,
+    toggleLike
 } = require("../controllers/blogController");
 
 const protect = require("../middleware/authMiddleware");
@@ -19,6 +20,8 @@ router.get("/", getBlogs);
 router.get("/search", searchBlogs);
 
 router.get("/filter", filterBlogs);
+
+router.post("/:id/like", protect, toggleLike);
 
 router.get("/:id", getBlogById);
 

@@ -149,6 +149,21 @@ const filterBlogs = async (req, res) => {
     try {
         const { category, tag } = req.query;
 
+        if (!category && !tag) {
+            return res.status(400).json({
+                message: "Category or tag is required"
+            });
+        }
+
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit) || 10, 1),
+            50
+        );
+
+        const skip = (page - 1) * limit;
+
         const filter = {
             status: "published"
         };
@@ -167,16 +182,35 @@ const filterBlogs = async (req, res) => {
             };
         }
 
-        const blogs = await Blog.find(filter)
-            .populate("author", "name email")
-            .sort({ createdAt: -1 });
+        const [blogs, totalBlogs] = await Promise.all([
+            Blog.find(filter)
+                .populate("author", "name email")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+
+            Blog.countDocuments(filter)
+        ]);
+
+        const totalPages = Math.ceil(totalBlogs / limit);
 
         res.status(200).json({
             count: blogs.length,
+
             filters: {
                 category: category || null,
                 tag: tag || null
             },
+
+            pagination: {
+                currentPage: page,
+                limit,
+                totalBlogs,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPreviousPage: page > 1
+            },
+
             blogs
         });
 

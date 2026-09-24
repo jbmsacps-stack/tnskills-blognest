@@ -223,6 +223,28 @@ const filterBlogs = async (req, res) => {
     }
 };
 
+const getMyBlogs = async (req, res) => {
+    try {
+        const blogs = await Blog.find({
+            author: req.user.userId
+        })
+            .populate("author", "name email")
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            count: blogs.length,
+            blogs
+        });
+
+    } catch (error) {
+        console.error("Get my blogs error:", error.message);
+
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+
 const getBlogById = async (req, res) => {
     try {
         const blog = await Blog.findOneAndUpdate(
@@ -385,6 +407,7 @@ module.exports = {
     getBlogs,
     searchBlogs,
     filterBlogs,
+    getMyBlogs,
     getBlogById,
     updateBlog,
     deleteBlog,

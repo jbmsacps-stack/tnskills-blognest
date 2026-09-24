@@ -5,6 +5,7 @@ const {
     getBlogs,
     searchBlogs,
     filterBlogs,
+    getMyBlogs,
     getBlogById,
     updateBlog,
     deleteBlog,
@@ -20,6 +21,8 @@ router.get("/", getBlogs);
 router.get("/search", searchBlogs);
 
 router.get("/filter", filterBlogs);
+
+router.get("/my-blogs", protect, getMyBlogs);
 
 router.post("/:id/like", protect, toggleLike);
 

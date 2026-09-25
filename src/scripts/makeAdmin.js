@@ -3,7 +3,7 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const User = require("../models/User");
 
-const ADMIN_EMAIL = "joshuabaskar106@gmail.com";
+const ADMIN_EMAIL = "admin@gmail.com";
 
 const makeAdmin = async () => {
     try {
